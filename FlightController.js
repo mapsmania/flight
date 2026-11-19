@@ -3,23 +3,24 @@ export default class FlightController {
     constructor(map, options = {}) {
         this.map = map;
 
-        // Speed is measured in metres per second
-        this.speed = options.speed ?? 60;
+        // Flight speed in metres per second
+        this.speed = options.speed ?? 150;
         this.minSpeed = options.minSpeed ?? 0;
-        this.maxSpeed = options.maxSpeed ?? 250;
+        this.maxSpeed = options.maxSpeed ?? 300;
+        this.speedStep = options.speedStep ?? 10;
 
         this.bearing = options.bearing ?? map.getBearing();
 
-        // Map camera pitch, not aircraft pitch
+        // Camera pitch
         this.pitch = options.pitch ?? map.getPitch();
         this.pitchMin = options.pitchMin ?? 30;
         this.pitchMax = options.pitchMax ?? 85;
 
-        this.speedStep = options.speedStep ?? 2.78; // 10 km/h
         this.turnRate = options.turnRate ?? 2;
 
         this.running = false;
         this.lastTime = null;
+        this.animationFrame = null;
 
         this._loop = this._loop.bind(this);
         this._onKeyDown = this._onKeyDown.bind(this);
@@ -33,21 +34,26 @@ export default class FlightController {
 
         window.addEventListener('keydown', this._onKeyDown);
 
-        requestAnimationFrame(this._loop);
+        // Start moving immediately
+        this.animationFrame = requestAnimationFrame(this._loop);
     }
 
     stop() {
         this.running = false;
-        this.lastTime = null;
 
         window.removeEventListener('keydown', this._onKeyDown);
+
+        if (this.animationFrame !== null) {
+            cancelAnimationFrame(this.animationFrame);
+            this.animationFrame = null;
+        }
+
+        this.lastTime = null;
     }
 
-    // Calculate a new geographic position after travelling
-    // a specified distance along a specified bearing.
+    // Calculate the next geographic position
     destination(lng, lat, distance, bearing) {
         const R = 6371000;
-
         const d = distance / R;
         const theta = bearing * Math.PI / 180;
 
@@ -77,8 +83,7 @@ export default class FlightController {
             this.lastTime = timestamp;
         }
 
-        // Time since the previous frame, in seconds.
-        // Clamp it to avoid a large jump after a browser pause.
+        // Calculate elapsed time
         const deltaTime = Math.min(
             (timestamp - this.lastTime) / 1000,
             0.1
@@ -86,10 +91,10 @@ export default class FlightController {
 
         this.lastTime = timestamp;
 
-        const center = this.map.getCenter();
-
-        // Distance travelled during this frame
+        // Calculate distance travelled this frame
         const distance = this.speed * deltaTime;
+
+        const center = this.map.getCenter();
 
         const [lng, lat] = this.destination(
             center.lng,
@@ -98,13 +103,15 @@ export default class FlightController {
             this.bearing
         );
 
+        // Move the map camera
         this.map.jumpTo({
             center: [lng, lat],
             bearing: this.bearing,
             pitch: this.pitch
         });
 
-        requestAnimationFrame(this._loop);
+        // Continue animation
+        this.animationFrame = requestAnimationFrame(this._loop);
     }
 
     _onKeyDown(e) {
