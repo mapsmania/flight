@@ -40,94 +40,102 @@
 <div id="map"></div>
 
 <script>
-    // Coordinates for the Matterhorn peak
-    // Coordinates for the Matterhorn peak
-    const matterhornCoords = [7.6586, 45.9763];
-    let isInteracting = false;
-
-    const map = new maplibregl.Map({
-
-        container: 'map',
-
-        style: 'https://tiles.openfreemap.org/styles/liberty',
-
-        center: matterhornCoords,
-
-        zoom: 11.5,
-
-        pitch: 50,
-
-        bearing: 0,
-
-        maxPitch: 85
-
-    });
     
-    map.on('load', () => {
-        // 1. Add Mapterhorn's elevation tile source with an explicit maxzoom
-        map.addSource('mapt-dem', {
-            type: 'raster-dem',
-            url: 'https://tiles.mapterhorn.com/tilejson.json',
-            tileSize: 512,
-            maxzoom: 12  // <-- Prevents MapLibre from looking for elevation tiles past zoom 12
-        });
+const matterhornCoords = [7.6586, 45.9763];
+let isInteracting = false;
 
-        // 2. Enable 3D terrain
-        map.setTerrain({
-            source: 'mapt-dem',
-            exaggeration: 1.4
-        });
+const map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: matterhornCoords,
+    zoom: 11.5,
+    pitch: 50,
+    bearing: 0,
+    maxPitch: 85,
+    attributionControl: true
+});
 
-        // 3. Find the first label (symbol) layer so hillshading sits neatly beneath text
-        const firstSymbolId = map.getStyle().layers.find(
-            layer => layer.type === 'symbol'
-        )?.id;
+// Navigation control can be added immediately
+map.addControl(
+    new maplibregl.NavigationControl(),
+    'top-right'
+);
 
-        map.addLayer({
-            id: 'hillshading',
-            type: 'hillshade',
-            source: 'mapt-dem',
-            paint: {
-                'hillshade-shadow-color': '#473d3d',
-                'hillshade-exaggeration': 0.5
-            }
-        }, firstSymbolId);
+map.on('load', () => {
 
-        // 4. Start the orbital rotation animation
-        requestAnimationFrame(rotateCamera);
+    // 1. Add elevation source for 3D terrain
+    map.addSource('mapt-dem', {
+        type: 'raster-dem',
+        url: 'https://tiles.mapterhorn.com/tilejson.json',
+        tileSize: 512,
+        maxzoom: 12
     });
 
-    function rotateCamera() {
-        if (!isInteracting) {
-            const currentBearing = map.getBearing();
-            // Rotate the bearing
-            const newBearing = currentBearing + 0.15;
-            
-            // To keep the Matterhorn dead center while orbiting, 
-            // we rotate around the target coordinate smoothly:
-            map.jumpTo({
-                center: matterhornCoords,
-                bearing: newBearing,
-                pitch: 55,
-                zoom: 12.5
-            });
-        }
-        requestAnimationFrame(rotateCamera);
-    }
-
-    // Pause automatic rotation as soon as the user interacts with the map
-    ['mousedown', 'touchstart', 'wheel'].forEach(event => {
-        map.getCanvas().addEventListener(event, () => {
-            isInteracting = true;
-        });
-    });
-
-    // Add standard navigation and 3D terrain toggle controls
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.addControl(new maplibregl.TerrainControl({
+    // 2. Enable 3D terrain
+    map.setTerrain({
         source: 'mapt-dem',
         exaggeration: 1.4
-    }), 'top-right');
+    });
+
+    // 3. Add a separate elevation source for hillshading
+    map.addSource('hillshade-dem', {
+        type: 'raster-dem',
+        url: 'https://tiles.mapterhorn.com/tilejson.json',
+        tileSize: 512,
+        maxzoom: 12
+    });
+
+    // 4. Find the first symbol layer
+    const firstSymbolId = map.getStyle().layers.find(
+        layer => layer.type === 'symbol'
+    )?.id;
+
+    // 5. Add hillshading underneath map labels
+    map.addLayer({
+        id: 'hillshading',
+        type: 'hillshade',
+        source: 'hillshade-dem',
+        paint: {
+            'hillshade-shadow-color': '#473d3d',
+            'hillshade-exaggeration': 0.5
+        }
+    }, firstSymbolId);
+
+    // 6. Add terrain toggle after the DEM source exists
+    map.addControl(
+        new maplibregl.TerrainControl({
+            source: 'mapt-dem',
+            exaggeration: 1.4
+        }),
+        'top-right'
+    );
+
+    // 7. Start orbital rotation
+    requestAnimationFrame(rotateCamera);
+});
+
+function rotateCamera() {
+    if (!isInteracting) {
+        const currentBearing = map.getBearing();
+
+        map.jumpTo({
+            center: matterhornCoords,
+            bearing: currentBearing + 0.15,
+            pitch: 55,
+            zoom: 12.5
+        });
+    }
+
+    requestAnimationFrame(rotateCamera);
+}
+
+// Pause rotation when the user interacts
+['mousedown', 'touchstart', 'wheel'].forEach(event => {
+    map.getCanvas().addEventListener(event, () => {
+        isInteracting = true;
+    });
+});
+
 </script>
 
 </body>
