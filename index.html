@@ -122,10 +122,10 @@ map.on('load', () => {
 
     // Initialise flight controller
     flight = new FlightController(map, {
-        speed: 60,
-        pitch: 65,
-        bearing: -18.6
-    });
+    speed: 300,
+    pitch: 75,
+    bearing: -18.6
+});
 
     flight.start();
     updateHUD();
