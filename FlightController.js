@@ -4,9 +4,9 @@ export default class FlightController {
         this.map = map;
 
         // Flight speed in metres per second
-        this.speed = options.speed ?? 150;
+        this.speed = options.speed ?? 300;
         this.minSpeed = options.minSpeed ?? 0;
-        this.maxSpeed = options.maxSpeed ?? 300;
+        this.maxSpeed = options.maxSpeed ?? 500;
         this.speedStep = options.speedStep ?? 10;
 
         this.bearing = options.bearing ?? map.getBearing();
